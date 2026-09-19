@@ -412,24 +412,26 @@
   }
   showToast("Sincronizando con Google Sheets...");
   try {
-    // Agregamos Date.now() para que ningún navegador use copia en memoria
-    const separador = API_URL.includes('?') ? '&' : '?';
-    const urlFresca = `${API_URL}${separador}_t=${Date.now()}`;
-
-    const res = await fetch(urlFresca, {
+    // Usamos redirect: 'follow' para que acepte la redirección obligatoria de Google
+    const res = await fetch(API_URL, {
       method: 'GET',
-      cache: 'no-store'
+      redirect: 'follow'
     });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+
     const data = await res.json();
+    console.log("Datos recibidos de Sheets:", data);
     DB = data;
     renderApp();
     showToast("Datos actualizados");
   } catch (err) {
-    console.error(err);
+    console.error("Error al cargar datos:", err);
     showToast("Error de conexión al sincronizar", "error");
   }
 }
-
  // Renderizado reactivo general corregido y tolerante a fechas
 function renderApp() {
   const hoy = new Date();
@@ -841,9 +843,10 @@ function renderApp() {
   }
 
   // Registro del Service Worker para PWA
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err));
-  }
+ // if ('serviceWorker' in navigator) {
+  //  navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err));
+  //}
+
 </script>
 </body>
 </html>
