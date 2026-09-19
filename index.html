@@ -353,23 +353,29 @@
 
 <script>
   // ==========================================
-  // CONFIGURACIÓN: COLOCA AQUÍ TU URL DE APPS SCRIPT
+  // CONFIGURACIÓN API
   // ==========================================
   const API_URL = "https://script.google.com/macros/s/AKfycbyMINLnJDKcrewEXOKsPJ5bkcYV1JaWAVKlL5WNG9IhJujFdUvcSi7r9QoiSarRCZMc/exec";
 
   let DB = { prestamos: [], cuotas: [] };
   let currentFiltro = 'todos';
 
-  // Inicialización
+  // Inicialización segura
   window.addEventListener('DOMContentLoaded', () => {
     initTheme();
-    document.getElementById('form-fecha').valueAsDate = new Date();
-    document.getElementById('form-fecha-limite').valueAsDate = new Date();
-    calcularCuotaPreview();
+    try {
+      const f1 = document.getElementById('form-fecha');
+      const f2 = document.getElementById('form-fecha-limite');
+      if (f1) f1.valueAsDate = new Date();
+      if (f2) f2.valueAsDate = new Date();
+      calcularCuotaPreview();
+    } catch (e) {
+      console.warn("Init form warning:", e);
+    }
     cargarDatosDesdeServidor();
   });
 
-  // Tema Claro / Oscuro
+  // Tema Claro / Oscuro (Siempre operativo)
   function initTheme() {
     const savedTheme = localStorage.getItem('wolll_theme') || 'light';
     if (savedTheme === 'dark') document.documentElement.classList.add('dark');
@@ -383,7 +389,7 @@
     showToast(isDark ? 'Modo Noche activado 🌙' : 'Modo Claro activado ☀️');
   }
 
-  // Navegación de Tabs
+  // Navegación de pestañas
   function switchTab(tab) {
     const viewInicio = document.getElementById('view-inicio');
     const viewPrestamos = document.getElementById('view-prestamos');
@@ -404,127 +410,125 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Carga y Sincronización con Google Apps Script
+  // Carga de datos tolerante a fallos
   async function cargarDatosDesdeServidor() {
-  if (!API_URL || API_URL.includes("https://script.google.com/macros/s/AKfycbyMINLnJDKcrewEXOKsPJ5bkcYV1JaWAVKlL5WNG9IhJujFdUvcSi7r9QoiSarRCZMc/exec")) {
-    showToast("Configura la API_URL en el script", "warning");
-    return;
-  }
-  showToast("Sincronizando con Google Sheets...");
-  try {
-    // Usamos redirect: 'follow' para que acepte la redirección obligatoria de Google
-    const res = await fetch(API_URL, {
-      method: 'GET',
-      redirect: 'follow'
-    });
-    
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+    if (!API_URL || API_URL.includes("PEGAR_AQUI")) {
+      showToast("Configura la API_URL en el script", "warning");
+      return;
     }
-
-    const data = await res.json();
-    console.log("Datos recibidos de Sheets:", data);
-    DB = data;
-    renderApp();
-    showToast("Datos actualizados");
-  } catch (err) {
-    console.error("Error al cargar datos:", err);
-    showToast("Error de conexión al sincronizar", "error");
-  }
-}
- // Renderizado reactivo general corregido y tolerante a fechas
-function renderApp() {
-  const hoy = new Date();
-  const hoyMilis = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-
-  let totalPorCobrar = 0;
-  let totalCobrado = 0;
-  let porVencer7dMonto = 0;
-  let cuotasPorVencerCount = 0;
-  const proximasAlertas = [];
-
-  if (!DB.prestamos || DB.prestamos.length === 0) {
-    document.getElementById('alerts-container').innerHTML = 
-      `<div class="p-4 rounded-xl bg-white dark:bg-[#20265f] text-center text-xs text-[#8f94ad]">No hay préstamos registrados aún.</div>`;
-    return;
+    showToast("Sincronizando con Google Sheets...");
+    try {
+      const res = await fetch(API_URL, { method: 'GET', redirect: 'follow' });
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+      const data = await res.json();
+      DB = data;
+      renderApp();
+      showToast("Datos actualizados");
+    } catch (err) {
+      console.error("Error al cargar datos:", err);
+      showToast("Error de conexión al sincronizar", "error");
+    }
   }
 
-  DB.prestamos.forEach(p => {
-    if (!p.cronograma) return;
+  // Función auxiliar para extraer solo YYYY-MM-DD
+  function limpiarFecha(fechaRaw) {
+    if (!fechaRaw) return "";
+    return fechaRaw.toString().split("T")[0].trim();
+  }
 
-    p.cronograma.forEach(c => {
-      const estadoCuota = (c.estado || '').toString().trim().toLowerCase();
-      const monto = Number(c.montoCuota || 0);
+  // Renderizado principal blindado
+  function renderApp() {
+    try {
+      const hoy = new Date();
+      const hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
 
-      if (estadoCuota === 'pagado') {
-        totalCobrado += monto;
-      } else {
-        totalPorCobrar += monto;
+      let totalPorCobrar = 0;
+      let totalCobrado = 0;
+      let porVencer7dMonto = 0;
+      let cuotasPorVencerCount = 0;
+      const proximasAlertas = [];
 
-        // Desglose directo de fecha YYYY-MM-DD sin alterar la zona horaria local
-        if (c.fechaVencimiento && c.fechaVencimiento.includes('-')) {
-          const partes = c.fechaVencimiento.split('-');
-          const anio = parseInt(partes[0], 10);
-          const mes = parseInt(partes[1], 10) - 1;
-          const dia = parseInt(partes[2], 10);
-
-          const fVencMilis = Date.UTC(anio, mes, dia);
-          const diffDias = Math.round((fVencMilis - hoyMilis) / (1000 * 60 * 60 * 24));
-
-          // Vencen en los próximos 7 días o están en mora
-          if (diffDias <= 7) {
-            porVencer7dMonto += monto;
-            cuotasPorVencerCount++;
-            proximasAlertas.push({
-              cliente: p.nombre,
-              telefono: p.telefono,
-              monto: monto,
-              cuotaLabel: `${c.numeroCuota} de ${c.totalCuotas || 1}`,
-              diffDias: diffDias,
-              idCuota: c.idCuota
-            });
-          }
-        }
+      if (!DB.prestamos || !Array.isArray(DB.prestamos)) {
+        return;
       }
-    });
-  });
 
-  document.getElementById('metric-por-cobrar').innerHTML = `S/ ${totalPorCobrar.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-  document.getElementById('metric-ya-cobrado').innerHTML = `S/ ${totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-  document.getElementById('metric-por-vencer').innerHTML = `S/ ${porVencer7dMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-  document.getElementById('metric-cuotas-por-vencer-label').innerText = `${cuotasPorVencerCount} cuotas próximas`;
-  document.getElementById('metric-deudores-count').innerText = `Saldo pendiente • ${DB.prestamos.length} préstamos`;
-  document.getElementById('badge-total-prestamos').innerText = `${DB.prestamos.length} Activos`;
+      DB.prestamos.forEach(p => {
+        if (!p.cronograma || !Array.isArray(p.cronograma)) return;
 
-  const granTotal = totalPorCobrar + totalCobrado;
-  const pct = granTotal > 0 ? ((totalCobrado / granTotal) * 100).toFixed(1) : 0;
-  document.getElementById('metric-progreso-pct').innerText = `${pct}% cobrado`;
-  document.getElementById('metric-progreso-bar').style.width = `${pct}%`;
+        p.cronograma.forEach(c => {
+          const estado = String(c.estado || '').trim().toLowerCase();
+          const monto = parseFloat(c.montoCuota) || 0;
 
-  renderAlertas(proximasAlertas);
-  renderDirectorioPrestamos();
-}
+          if (estado === 'pagado') {
+            totalCobrado += monto;
+          } else {
+            totalPorCobrar += monto;
 
-  // Actualizar métricas en pantalla
-  document.getElementById('metric-por-cobrar').innerHTML = `S/ ${totalPorCobrar.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-  document.getElementById('metric-ya-cobrado').innerHTML = `S/ ${totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-  document.getElementById('metric-por-vencer').innerHTML = `S/ ${porVencer7dMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-  document.getElementById('metric-cuotas-por-vencer-label').innerText = `${cuotasPorVencerCount} cuotas próximas`;
-  document.getElementById('metric-deudores-count').innerText = `Saldo pendiente • ${DB.prestamos.length} préstamos`;
-  document.getElementById('badge-total-prestamos').innerText = `${DB.prestamos.length} Activos`;
+            const fStr = limpiarFecha(c.fechaVencimiento);
+            if (fStr && fStr.includes('-')) {
+              const pPartes = fStr.split('-');
+              const anio = parseInt(pPartes[0], 10);
+              const mes = parseInt(pPartes[1], 10) - 1;
+              const dia = parseInt(pPartes[2], 10);
 
-  const granTotal = totalPorCobrar + totalCobrado;
-  const pct = granTotal > 0 ? ((totalCobrado / granTotal) * 100).toFixed(1) : 0;
-  document.getElementById('metric-progreso-pct').innerText = `${pct}% cobrado`;
-  document.getElementById('metric-progreso-bar').style.width = `${pct}%`;
+              const fVencUtc = Date.UTC(anio, mes, dia);
+              const diffDias = Math.round((fVencUtc - hoyUtc) / (1000 * 60 * 60 * 24));
 
-  renderAlertas(proximasAlertas);
-  renderDirectorioPrestamos();
-}
+              if (!isNaN(diffDias) && diffDias <= 7) {
+                porVencer7dMonto += monto;
+                cuotasPorVencerCount++;
+                proximasAlertas.push({
+                  cliente: p.nombre || 'Cliente',
+                  telefono: p.telefono || '',
+                  monto: monto,
+                  cuotaLabel: `${c.numeroCuota || 1} de ${c.totalCuotas || 1}`,
+                  diffDias: diffDias,
+                  idCuota: c.idCuota
+                });
+              }
+            }
+          }
+        });
+      });
 
-  // Render Alertas Dashboard
+      // Actualizar tarjetas de métricas
+      const elPorCobrar = document.getElementById('metric-por-cobrar');
+      if (elPorCobrar) elPorCobrar.innerHTML = `S/ ${totalPorCobrar.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+
+      const elYaCobrado = document.getElementById('metric-ya-cobrado');
+      if (elYaCobrado) elYaCobrado.innerHTML = `S/ ${totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+
+      const elPorVencer = document.getElementById('metric-por-vencer');
+      if (elPorVencer) elPorVencer.innerHTML = `S/ ${porVencer7dMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+
+      const elCuotasLabel = document.getElementById('metric-cuotas-por-vencer-label');
+      if (elCuotasLabel) elCuotasLabel.innerText = `${cuotasPorVencerCount} cuotas próximas`;
+
+      const elDeudoresCount = document.getElementById('metric-deudores-count');
+      if (elDeudoresCount) elDeudoresCount.innerText = `Saldo pendiente • ${DB.prestamos.length} préstamos`;
+
+      const elBadgePrestamos = document.getElementById('badge-total-prestamos');
+      if (elBadgePrestamos) elBadgePrestamos.innerText = `${DB.prestamos.length} Activos`;
+
+      const granTotal = totalPorCobrar + totalCobrado;
+      const pct = granTotal > 0 ? ((totalCobrado / granTotal) * 100).toFixed(1) : 0;
+      const elProgPct = document.getElementById('metric-progreso-pct');
+      if (elProgPct) elProgPct.innerText = `${pct}% cobrado`;
+
+      const elProgBar = document.getElementById('metric-progreso-bar');
+      if (elProgBar) elProgBar.style.width = `${pct}%`;
+
+      renderAlertas(proximasAlertas);
+      renderDirectorioPrestamos();
+    } catch (error) {
+      console.error("Error durante renderApp:", error);
+    }
+  }
+
+  // Render Alertas
   function renderAlertas(alertas) {
     const container = document.getElementById('alerts-container');
+    if (!container) return;
     container.innerHTML = "";
 
     if (alertas.length === 0) {
@@ -554,7 +558,7 @@ function renderApp() {
         timingTexto = `en ${a.diffDias} días`;
       }
 
-      const initials = a.cliente.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
+      const initials = (a.cliente || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
       container.innerHTML += `
         <div class="p-4 rounded-2xl bg-white dark:bg-[#20265f] border-l-4 ${borderColor} border-y border-r border-[#ebeae6] dark:border-[#2c3375] shadow-sm theme-transition">
@@ -578,7 +582,7 @@ function renderApp() {
               <span class="text-lg font-black text-[#2a327d] dark:text-white">S/ ${a.monto.toFixed(2)}</span>
             </div>
             <button class="px-3.5 py-2 rounded-xl ${btnColor} text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all" onclick="enviarWhatsApp('${a.telefono}', '${a.cliente}', '${a.monto.toFixed(2)}', '${a.cuotaLabel}', '${timingTexto}')">
-              <span class="material-symbols-outlined text-[16px]">send</span>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.18-2.587-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.297.144.35.49 1.199.533 1.287.043.088.072.19.014.305-.058.115-.087.19-.174.29-.087.101-.183.226-.261.304-.087.087-.178.181-.077.355.101.174.449.741.964 1.201.662.591 1.221.774 1.394.861.174.086.275.072.376-.044.102-.115.434-.506.549-.679.116-.174.232-.145.39-.087s1.011.477 1.184.564.29.13.332.202c.044.073.044.42-.1.825z"></path></svg>
               <span>Notificar</span>
             </button>
           </div>
@@ -590,35 +594,53 @@ function renderApp() {
   // Render Directorio de Préstamos
   function renderDirectorioPrestamos() {
     const list = document.getElementById('loans-list');
+    if (!list) return;
     list.innerHTML = "";
 
     const hoy = new Date();
-    hoy.setHours(0,0,0,0);
+    const hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
 
     DB.prestamos.forEach((p, index) => {
-      const pagado = p.cronograma.filter(c => c.estado === 'Pagado').reduce((acc, c) => acc + c.montoCuota, 0);
-      const pendiente = p.total - pagado;
-      const tieneMora = p.cronograma.some(c => c.estado !== 'Pagado' && new Date(c.fechaVencimiento + "T00:00:00") < hoy);
+      const crono = Array.isArray(p.cronograma) ? p.cronograma : [];
+      const total = parseFloat(p.total) || 0;
+      const pagado = crono.filter(c => String(c.estado).toLowerCase() === 'pagado').reduce((acc, c) => acc + (parseFloat(c.montoCuota) || 0), 0);
+      const pendiente = total - pagado;
+
+      const tieneMora = crono.some(c => {
+        if (String(c.estado).toLowerCase() === 'pagado') return false;
+        const fStr = limpiarFecha(c.fechaVencimiento);
+        if (!fStr) return false;
+        const pt = fStr.split('-');
+        const fV = Date.UTC(parseInt(pt[0], 10), parseInt(pt[1], 10) - 1, parseInt(pt[2], 10));
+        return fV < hoyUtc;
+      });
 
       const category = [
         tieneMora ? 'vencidos' : 'al_dia',
         p.modalidad === 'cuotas' ? 'en_cuotas' : 'pago_unico'
       ].join(' ');
 
-      const initials = p.nombre.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
-      const pctAmortizado = ((pagado / p.total) * 100).toFixed(0);
+      const initials = (p.nombre || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+      const pctAmortizado = total > 0 ? ((pagado / total) * 100).toFixed(0) : 0;
 
       let cuotasHtml = "";
-      p.cronograma.forEach(c => {
-        const fVenc = new Date(c.fechaVencimiento + "T00:00:00");
-        const esMora = c.estado !== 'Pagado' && fVenc < hoy;
-        
+      crono.forEach(c => {
+        const estadoPagado = String(c.estado).toLowerCase() === 'pagado';
+        const fStr = limpiarFecha(c.fechaVencimiento);
+        let esMora = false;
+        if (!estadoPagado && fStr) {
+          const pt = fStr.split('-');
+          esMora = Date.UTC(parseInt(pt[0], 10), parseInt(pt[1], 10) - 1, parseInt(pt[2], 10)) < hoyUtc;
+        }
+
+        const montoCuota = parseFloat(c.montoCuota) || 0;
+
         cuotasHtml += `
-          <div class="flex items-center justify-between p-2 rounded-lg ${c.estado === 'Pagado' ? 'bg-[#00c689]/10' : esMora ? 'bg-[#fb6158]/10' : 'bg-gray-50 dark:bg-[#161a42]'} border border-[#ebeae6] dark:border-[#2c3375]">
-            <span class="font-medium text-xs">Cuota ${c.numeroCuota} • ${c.fechaVencimiento}</span>
+          <div class="flex items-center justify-between p-2 rounded-lg ${estadoPagado ? 'bg-[#00c689]/10' : esMora ? 'bg-[#fb6158]/10' : 'bg-gray-50 dark:bg-[#161a42]'} border border-[#ebeae6] dark:border-[#2c3375]">
+            <span class="font-medium text-xs">Cuota ${c.numeroCuota || 1} • ${fStr}</span>
             <div class="flex items-center gap-2">
-              <span class="font-bold text-xs ${esMora ? 'text-[#fb6158]' : ''}">S/ ${c.montoCuota.toFixed(2)}</span>
-              ${c.estado === 'Pagado' 
+              <span class="font-bold text-xs ${esMora ? 'text-[#fb6158]' : ''}">S/ ${montoCuota.toFixed(2)}</span>
+              ${estadoPagado 
                 ? '<span class="text-[#00c689] font-bold text-[10px]">PAGADO</span>' 
                 : `<button onclick="marcarCuotaPagada('${c.idCuota}')" class="px-2 py-0.5 rounded bg-[#00c689] text-white text-[10px] font-bold">Cobrar</button>`}
             </div>
@@ -639,7 +661,7 @@ function renderApp() {
                   <span class="w-2 h-2 rounded-full ${tieneMora ? 'bg-[#fb6158]' : 'bg-[#00c689]'}"></span>
                 </div>
                 <div class="text-xs text-[#8f94ad] mt-0.5">
-                  Restante: S/ ${pendiente.toFixed(2)} • ${p.modalidad === 'cuotas' ? p.cuotasCount + ' Cuotas' : 'Pago Único'}
+                  Restante: S/ ${pendiente.toFixed(2)} • ${p.modalidad === 'cuotas' ? (p.cuotasCount || 1) + ' Cuotas' : 'Pago Único'}
                 </div>
               </div>
             </div>
@@ -650,7 +672,7 @@ function renderApp() {
             <div class="mt-2">
               <div class="flex justify-between text-xs mb-1">
                 <span class="text-[#8f94ad]">Amortizado (${pctAmortizado}%)</span>
-                <span class="font-bold text-[#00c689]">S/ ${pagado.toFixed(2)} / S/ ${p.total.toFixed(2)}</span>
+                <span class="font-bold text-[#00c689]">S/ ${pagado.toFixed(2)} / S/ ${total.toFixed(2)}</span>
               </div>
               <div class="w-full h-2 rounded-full bg-[#ebeae6] dark:bg-[#161a42] overflow-hidden">
                 <div class="h-full rounded-full bg-[#00c689]" style="width: ${pctAmortizado}%"></div>
@@ -664,7 +686,7 @@ function renderApp() {
 
             <button class="w-full py-2.5 rounded-xl bg-[#00c689] text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all" onclick="enviarWhatsApp('${p.telefono}', '${p.nombre}', '${pendiente.toFixed(2)}', 'saldo restante', 'a la brevedad')">
               <span class="material-symbols-outlined text-[16px]">chat</span>
-              <span>Enviar recordatorio general por WhatsApp</span>
+              <span>Enviar recordatorio por WhatsApp</span>
             </button>
           </div>
         </div>
@@ -674,9 +696,9 @@ function renderApp() {
     filtrarPrestamos();
   }
 
-  // WhatsApp Deep Link
+  // Envío por WhatsApp
   function enviarWhatsApp(telefono, nombre, monto, cuota, timing) {
-    const telLimpio = telefono.replace(/[^0-9]/g, '');
+    const telLimpio = String(telefono || '').replace(/[^0-9]/g, '');
     const mensaje = encodeURIComponent(`Hola ${nombre}, te saludamos de Wolll Finance. Te recordamos que tu cuota (${cuota}) por el monto de S/ ${monto} vence ${timing}. Por favor confírmanos tu pago al realizarlo. ¡Muchas gracias!`);
     window.open(`https://wa.me/${telLimpio}?text=${mensaje}`, '_blank');
   }
@@ -685,16 +707,18 @@ function renderApp() {
   async function guardarNuevoPrestamo(e) {
     e.preventDefault();
     const btn = document.getElementById('btn-submit-loan');
-    btn.disabled = true;
-    btn.innerText = "Guardando...";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Guardando...";
+    }
 
     const nombre = document.getElementById('form-nombre').value;
     const tel = document.getElementById('form-pais').value + document.getElementById('form-tel').value.trim();
-    const monto = parseFloat(document.getElementById('form-monto').value);
+    const monto = parseFloat(document.getElementById('form-monto').value) || 0;
     const hasInteres = document.getElementById('switch-interes').checked;
     const interesPct = hasInteres ? (parseFloat(document.getElementById('form-interes').value) || 0) : 0;
-    const modalidad = document.querySelector('input[name="modalidad"]:checked').value;
-    const cuotas = modalidad === 'cuotas' ? parseInt(document.getElementById('form-cuotas').value) : 1;
+    const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'cuotas';
+    const cuotas = modalidad === 'cuotas' ? (parseInt(document.getElementById('form-cuotas').value) || 1) : 1;
     const fechaInicio = modalidad === 'cuotas' ? document.getElementById('form-fecha').value : document.getElementById('form-fecha-limite').value;
 
     const total = monto + (monto * (interesPct / 100));
@@ -720,13 +744,17 @@ function renderApp() {
       });
       showToast("¡Préstamo registrado!");
       closeModalRegistro();
-      document.getElementById('form-prestamo').reset();
+      const form = document.getElementById('form-prestamo');
+      if (form) form.reset();
       setTimeout(cargarDatosDesdeServidor, 1500);
     } catch (err) {
+      console.error(err);
       showToast("Error al registrar", "error");
     } finally {
-      btn.disabled = false;
-      btn.innerText = "Guardar Préstamo";
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = "Guardar Préstamo";
+      }
     }
   }
 
@@ -743,20 +771,22 @@ function renderApp() {
       showToast("Pago asentado con éxito");
       setTimeout(cargarDatosDesdeServidor, 1200);
     } catch (err) {
+      console.error(err);
       showToast("Error al asentar pago", "error");
     }
   }
 
-  // Control Accordion y Filtros
+  // Acordeón y Filtros
   function toggleAccordion(id) {
     const el = document.getElementById(id);
     const icon = document.getElementById('icon-' + id);
+    if (!el) return;
     if (el.classList.contains('hidden')) {
       el.classList.remove('hidden');
-      icon.style.transform = 'rotate(180deg)';
+      if (icon) icon.style.transform = 'rotate(180deg)';
     } else {
       el.classList.add('hidden');
-      icon.style.transform = 'rotate(0deg)';
+      if (icon) icon.style.transform = 'rotate(0deg)';
     }
   }
 
@@ -770,25 +800,28 @@ function renderApp() {
   }
 
   function filtrarPrestamos() {
-    const q = document.getElementById('loanSearch').value.toLowerCase();
+    const elSearch = document.getElementById('loanSearch');
+    const q = elSearch ? elSearch.value.toLowerCase() : '';
     document.querySelectorAll('.loan-item').forEach(item => {
-      const name = item.getAttribute('data-name').toLowerCase();
-      const cat = item.getAttribute('data-category');
+      const name = (item.getAttribute('data-name') || '').toLowerCase();
+      const cat = item.getAttribute('data-category') || '';
       const matchesQuery = name.includes(q);
       const matchesCat = (currentFiltro === 'todos') || cat.includes(currentFiltro);
       item.style.display = (matchesQuery && matchesCat) ? 'block' : 'none';
     });
   }
 
-  // Modales y cálculos reactivos
+  // Modales y cálculos
   function openModalRegistro() {
-    document.getElementById('modal-registro').classList.remove('hidden');
+    const modal = document.getElementById('modal-registro');
+    if (modal) modal.classList.remove('hidden');
     toggleModalidadFields();
     calcularCuotaPreview();
   }
 
   function closeModalRegistro() {
-    document.getElementById('modal-registro').classList.add('hidden');
+    const modal = document.getElementById('modal-registro');
+    if (modal) modal.classList.add('hidden');
   }
 
   function toggleModalidadFields() {
@@ -798,42 +831,52 @@ function renderApp() {
     const labelPreview = document.getElementById('label-preview-cuota');
 
     if (mod === 'unico') {
-      cCuotas.classList.add('hidden');
-      cPagoUnico.classList.remove('hidden');
+      if (cCuotas) cCuotas.classList.add('hidden');
+      if (cPagoUnico) cPagoUnico.classList.remove('hidden');
       if (labelPreview) labelPreview.innerText = 'Total a devolver al vencimiento:';
     } else {
-      cCuotas.classList.remove('hidden');
-      cPagoUnico.classList.add('hidden');
+      if (cCuotas) cCuotas.classList.remove('hidden');
+      if (cPagoUnico) cPagoUnico.classList.add('hidden');
       if (labelPreview) labelPreview.innerText = 'Estimado cuota:';
     }
     calcularCuotaPreview();
   }
 
   function toggleInteresField() {
-    const c = document.getElementById('switch-interes').checked;
-    document.getElementById('container-interes').classList.toggle('hidden', !c);
+    const checkEl = document.getElementById('switch-interes');
+    const contEl = document.getElementById('container-interes');
+    if (contEl && checkEl) {
+      contEl.classList.toggle('hidden', !checkEl.checked);
+    }
     calcularCuotaPreview();
   }
 
   function calcularCuotaPreview() {
-    const monto = parseFloat(document.getElementById('form-monto').value) || 0;
-    const hasInteres = document.getElementById('switch-interes').checked;
-    const tasa = hasInteres ? (parseFloat(document.getElementById('form-interes').value) || 0) : 0;
+    const monto = parseFloat(document.getElementById('form-monto')?.value) || 0;
+    const hasInteres = document.getElementById('switch-interes')?.checked;
+    const tasa = hasInteres ? (parseFloat(document.getElementById('form-interes')?.value) || 0) : 0;
     const mod = document.querySelector('input[name="modalidad"]:checked')?.value || 'cuotas';
-    const numCuotas = mod === 'cuotas' ? (parseInt(document.getElementById('form-cuotas').value) || 1) : 1;
+    const numCuotas = mod === 'cuotas' ? (parseInt(document.getElementById('form-cuotas')?.value) || 1) : 1;
 
     const totalDevolver = monto + (monto * (tasa / 100));
     const valorCuota = totalDevolver / numCuotas;
 
-    document.getElementById('preview-total').innerText = 'S/ ' + totalDevolver.toFixed(2);
-    document.getElementById('preview-cuota').innerText = mod === 'unico' 
-      ? 'S/ ' + totalDevolver.toFixed(2)
-      : 'S/ ' + valorCuota.toFixed(2) + ' / cuota';
+    const elPrevTotal = document.getElementById('preview-total');
+    const elPrevCuota = document.getElementById('preview-cuota');
+
+    if (elPrevTotal) elPrevTotal.innerText = 'S/ ' + totalDevolver.toFixed(2);
+    if (elPrevCuota) {
+      elPrevCuota.innerText = mod === 'unico' 
+        ? 'S/ ' + totalDevolver.toFixed(2)
+        : 'S/ ' + valorCuota.toFixed(2) + ' / cuota';
+    }
   }
 
   function showToast(msg) {
     const toast = document.getElementById('toast');
-    document.getElementById('toast-msg').innerText = msg;
+    const toastMsg = document.getElementById('toast-msg');
+    if (!toast || !toastMsg) return;
+    toastMsg.innerText = msg;
     toast.classList.remove('opacity-0', '-translate-y-2', 'pointer-events-none');
     toast.classList.add('opacity-100', 'translate-y-0');
     setTimeout(() => {
@@ -841,12 +884,7 @@ function renderApp() {
       toast.classList.add('opacity-0', '-translate-y-2', 'pointer-events-none');
     }, 3000);
   }
-
-  // Registro del Service Worker para PWA
- // if ('serviceWorker' in navigator) {
-  //  navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err));
-  //}
-
 </script>
+
 </body>
 </html>
