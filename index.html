@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Wolll Finance - PWA Mobile</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2a327d">
+
+<!-- Favicon estándar para navegadores -->
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+
+<!-- Ícono para pantalla de inicio en iPhone (Safari) -->
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wolll Finance">
+
+<!-- Enlace al manifest para Android / Chrome -->
+<link rel="manifest" href="manifest.json">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          colors: {
+            brand: {
+              lightBg: '#fcfbf9',
+              darkBg: '#161a42',
+              cardLight: '#ffffff',
+              cardDark: '#20265f',
+              primary: '#2a327d',
+              success: '#00c689',
+              warning: '#f9ac38',
+              danger: '#fb6158',
+              grayLight: '#8f94ad',
+              borderLight: '#ebeae6',
+              borderDark: '#2c3375'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+    .material-symbols-outlined.fill { font-variation-settings: 'FILL' 1; }
+    .theme-transition { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-[#fcfbf9] text-[#2a327d] dark:bg-[#161a42] dark:text-[#fcfbf9] min-h-screen theme-transition flex justify-center selection:bg-[#00c689]/20">
+
+<div class="w-full max-w-[420px] min-h-screen flex flex-col bg-[#fcfbf9] dark:bg-[#161a42] relative pb-28 shadow-2xl overflow-x-hidden theme-transition" id="app-container">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 bg-[#fcfbf9]/90 dark:bg-[#161a42]/90 backdrop-blur-md px-5 pt-4 pb-3 border-b border-[#ebeae6] dark:border-[#2c3375] flex items-center justify-between theme-transition">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 flex items-center justify-center relative">
+        <img alt="Wolll Finance Bear Logo" class="w-full h-full object-contain block dark:hidden drop-shadow-sm" id="logo-light" src="logo-wolll-finance.png">
+        <img alt="Wolll Finance Bear Logo White" class="w-full h-full object-contain hidden dark:block drop-shadow-sm" id="logo-dark" src="logo-wolll-finance-white.png">
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-lg font-extrabold tracking-tight text-[#2a327d] dark:text-white leading-none">Wolll</span>
+          <span class="text-lg font-medium text-[#2a327d]/80 dark:text-white/80 leading-none">Finance</span>
+        </div>
+        <span class="text-[10px] font-semibold text-[#00c689] flex items-center gap-1 mt-0.5" id="sync-status">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#00c689] animate-pulse"></span> Sincronizado
+        </span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="w-9 h-9 rounded-xl bg-white dark:bg-[#20265f] border border-[#ebeae6] dark:border-[#2c3375] flex items-center justify-center text-[#2a327d] dark:text-[#f9ac38] shadow-sm active:scale-90 transition-all" onclick="toggleTheme()">
+        <span class="material-symbols-outlined text-[20px] block dark:hidden" id="theme-icon-light">dark_mode</span>
+        <span class="material-symbols-outlined text-[20px] hidden dark:block" id="theme-icon-dark">light_mode</span>
+      </button>
+      <button class="w-9 h-9 rounded-xl bg-white dark:bg-[#20265f] border border-[#ebeae6] dark:border-[#2c3375] flex items-center justify-center text-[#2a327d] dark:text-white shadow-sm active:scale-90 transition-all" onclick="cargarDatosDesdeServidor()">
+        <span class="material-symbols-outlined text-[20px]">sync</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PANTALLA 1: INICIO -->
+  <main class="flex-1 px-5 pt-4 space-y-6" id="view-inicio">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-extrabold text-[#2a327d] dark:text-white tracking-tight">Dashboard de Cobranza</h1>
+        <p class="text-xs text-[#8f94ad] font-medium mt-0.5">Control de préstamos y vencimientos activos</p>
+      </div>
+      <div class="px-2.5 py-1 rounded-full bg-[#00c689]/10 border border-[#00c689]/20 text-[#00c689] text-[11px] font-bold flex items-center gap-1" id="fecha-actual-badge">
+        <span class="material-symbols-outlined text-[14px]">calendar_today</span> Hoy
+      </div>
+    </div>
+
+    <!-- TARJETAS DE MÉTRICAS -->
+    <div class="grid grid-cols-1 gap-3">
+      <!-- 1. Por Cobrar -->
+      <div class="p-5 rounded-2xl bg-white dark:bg-[#20265f] border border-[#ebeae6] dark:border-[#2c3375] shadow-sm relative overflow-hidden theme-transition">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-[#8f94ad] uppercase tracking-wider">
+              <span class="material-symbols-outlined text-[16px] text-[#2a327d] dark:text-[#8f94ad]">account_balance_wallet</span> Total por Cobrar
+            </div>
+            <div class="text-3xl font-black text-[#2a327d] dark:text-white mt-2 tracking-tight" id="metric-por-cobrar">
+              S/ 0.00
+            </div>
+            <p class="text-xs text-[#8f94ad] mt-1 font-medium" id="metric-deudores-count">0 Préstamos activos</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg bg-[#2a327d]/5 dark:bg-white/10 text-[#2a327d] dark:text-white text-[11px] font-bold" id="badge-total-prestamos">
+            0 Activos
+          </span>
+        </div>
+        <div class="mt-4 pt-3 border-t border-[#ebeae6]/60 dark:border-[#2c3375]/60">
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="text-[#8f94ad] font-medium">Recuperación global</span>
+            <span class="font-bold text-[#00c689]" id="metric-progreso-pct">0%</span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-[#ebeae6] dark:bg-[#161a42] overflow-hidden">
+            <div class="h-full rounded-full bg-[#00c689]" id="metric-progreso-bar" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Ya Cobrado y Próximas a Vencer -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="p-4 rounded-2xl bg-white dark:bg-[#20265f] border border-[#ebeae6] dark:border-[#2c3375] shadow-sm theme-transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-[#8f94ad] uppercase">Ya Cobrado</span>
+            <div class="w-6 h-6 rounded-lg bg-[#00c689]/10 text-[#00c689] flex items-center justify-center">
+              <span class="material-symbols-outlined text-[15px]">trending_up</span>
+            </div>
+          </div>
+          <div class="text-xl font-black text-[#00c689] tracking-tight" id="metric-ya-cobrado">
+            S/ 0.00
+          </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-white dark:bg-[#20265f] border-2 border-[#f9ac38]/40 dark:border-[#f9ac38]/40 shadow-sm relative overflow-hidden theme-transition">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-[#f9ac38] uppercase">Por Vencer (7d)</span>
+            <div class="w-6 h-6 rounded-lg bg-[#f9ac38]/15 text-[#f9ac38] flex items-center justify-center">
+              <span class="material-symbols-outlined text-[15px]">notification_important</span>
+            </div>
+          </div>
+          <div class="text-xl font-black text-[#f9ac38] tracking-tight" id="metric-por-vencer">
+            S/ 0.00
+          </div>
+          <div class="mt-1.5 text-[11px] font-semibold text-[#8f94ad] flex items-center gap-1" id="metric-cuotas-por-vencer-label">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#f9ac38]"></span> 0 cuotas
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN ALERTAS FEED -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#fb6158] animate-ping"></span>
+          <h2 class="text-base font-extrabold text-[#2a327d] dark:text-white tracking-tight">Alertas de Cobranza</h2>
+        </div>
+        <button class="text-xs font-bold text-[#00c689] hover:underline flex items-center gap-0.5" onclick="switchTab('prestamos')">
+          Ver todas <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+        </button>
+      </div>
+
+      <div class="space-y-3" id="alerts-container">
+        <!-- Render dinámico de alertas -->
+      </div>
+    </section>
+  </main>
+
+  <!-- PANTALLA 2: PRÉSTAMOS -->
+  <main class="flex-1 px-5 pt-4 space-y-4 hidden" id="view-prestamos">
+    <div>
+      <h1 class="text-xl font-extrabold text-[#2a327d] dark:text-white tracking-tight">Directorio de Préstamos</h1>
+      <p class="text-xs text-[#8f94ad] font-medium mt-0.5">Control individual y amortizaciones</p>
+    </div>
+
+    <div class="relative">
+      <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-[#8f94ad]">search</span>
+      <input class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-[#20265f] border border-[#ebeae6] dark:border-[#2c3375] text-xs font-medium text-[#2a327d] dark:text-white placeholder-[#8f94ad] focus:outline-none focus:ring-2 focus:ring-[#00c689] shadow-sm theme-transition" id="loanSearch" oninput="filtrarPrestamos()" placeholder="Buscar deudor por nombre o teléfono..." type="text">
+    </div>
+
+    <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+      <button class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-[#2a327d] text-white dark:bg-white dark:text-[#2a327d] shadow-sm" onclick="setFiltro('todos', this)">Todos</button>
+      <button class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white dark:bg-[#20265f] text-[#8f94ad] border border-[#ebeae6] dark:border-[#2c3375]" onclick="setFiltro('al_dia', this)">Al día</button>
+      <button class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white dark:bg-[#20265f] text-[#8f94ad] border border-[#ebeae6] dark:border-[#2c3375]" onclick="setFiltro('vencidos', this)">Vencidos / Mora</button>
+      <button class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white dark:bg-[#20265f] text-[#8f94ad] border border-[#ebeae6] dark:border-[#2c3375]" onclick="setFiltro('en_cuotas', this)">En cuotas</button>
+      <button class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white dark:bg-[#20265f] text-[#8f94ad] border border-[#ebeae6] dark:border-[#2c3375]" onclick="setFiltro('pago_unico', this)">Pago único</button>
+    </div>
+
+    <div class="space-y-3 pt-1" id="loans-list">
+      <!-- Render dinámico de préstamos -->
+    </div>
+  </main>
+
+  <!-- BOTÓN FLOTANTE (FAB) -->
+  <button class="fixed bottom-20 right-6 md:right-[calc(50%-180px)] z-30 w-14 h-14 rounded-2xl bg-[#00c689] hover:bg-[#00c689]/90 text-white flex items-center justify-center shadow-xl shadow-[#00c689]/40 active:scale-95 transition-transform" onclick="openModalRegistro()">
+    <span class="material-symbols-outlined text-[32px] font-bold">add</span>
+  </button>
+
+  <!-- NAVEGACIÓN INFERIOR -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 flex justify-center bg-transparent pointer-events-none">
+    <div class="w-full max-w-[420px] bg-white/95 dark:bg-[#20265f]/95 backdrop-blur-md border-t border-[#ebeae6] dark:border-[#2c3375] px-6 py-2.5 flex items-center justify-around pointer-events-auto shadow-lg theme-transition">
+      <button class="flex flex-col items-center gap-1 text-[#2a327d] dark:text-[#00c689] font-extrabold transition-colors" id="nav-inicio" onclick="switchTab('inicio')">
+        <span class="material-symbols-outlined text-[24px] fill">home</span>
+        <span class="text-[11px] tracking-tight">Inicio</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 text-[#8f94ad] hover:text-[#2a327d] dark:hover:text-white transition-colors" id="nav-prestamos" onclick="switchTab('prestamos')">
+        <span class="material-symbols-outlined text-[24px]">account_balance</span>
+        <span class="text-[11px] tracking-tight">Préstamos</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MODAL NUEVO REGISTRO -->
+  <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center transition-opacity duration-300 hidden" id="modal-registro">
+    <div class="w-full max-w-[420px] bg-white dark:bg-[#20265f] rounded-t-3xl border-t border-[#ebeae6] dark:border-[#2c3375] p-6 max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl theme-transition" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-2 border-b border-[#ebeae6] dark:border-[#2c3375]">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-[#00c689]/15 text-[#00c689] flex items-center justify-center font-bold">
+            <span class="material-symbols-outlined text-[20px]">add_card</span>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-[#2a327d] dark:text-white text-base">Nuevo Préstamo</h3>
+            <p class="text-[11px] text-[#8f94ad]">Registrar prestatario y cronograma</p>
+          </div>
+        </div>
+        <button class="w-8 h-8 rounded-full bg-[#fcfbf9] dark:bg-[#161a42] text-[#8f94ad] flex items-center justify-center" onclick="closeModalRegistro()">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+
+      <form class="space-y-3.5 text-xs" id="form-prestamo" onsubmit="guardarNuevoPrestamo(event)">
+        <div>
+          <label class="block font-bold text-[#2a327d] dark:text-white mb-1">Nombre completo del prestatario</label>
+          <input class="w-full px-3.5 py-2.5 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] text-[#2a327d] dark:text-white focus:ring-2 focus:ring-[#00c689] focus:outline-none" id="form-nombre" placeholder="Ej. Roberto Gómez" required type="text">
+        </div>
+
+        <div>
+          <label class="block font-bold text-[#2a327d] dark:text-white mb-1">WhatsApp (con código de país)</label>
+          <div class="flex gap-2">
+            <select class="w-24 px-2 py-2.5 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] font-bold text-[#2a327d] dark:text-white focus:outline-none" id="form-pais">
+              <option value="+51">🇵🇪 +51</option>
+              <option value="+52">🇲🇽 +52</option>
+              <option value="+57">🇨🇴 +57</option>
+              <option value="+1">🇺🇸 +1</option>
+            </select>
+            <input class="flex-1 px-3.5 py-2.5 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] text-[#2a327d] dark:text-white focus:ring-2 focus:ring-[#00c689] focus:outline-none" id="form-tel" placeholder="987654321" required type="tel">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-[#2a327d] dark:text-white mb-1">Monto de Capital (S/)</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-sm text-[#8f94ad]">S/</span>
+            <input class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] font-bold text-sm text-[#2a327d] dark:text-white focus:ring-2 focus:ring-[#00c689] focus:outline-none" id="form-monto" min="10" oninput="calcularCuotaPreview()" placeholder="1500" required step="1" type="number">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-[#2a327d] dark:text-white mb-1">Modalidad de pago</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-[#ebeae6] dark:border-[#2c3375] cursor-pointer bg-[#fcfbf9] dark:bg-[#161a42] text-[#2a327d] dark:text-white font-bold has-[:checked]:border-[#00c689] has-[:checked]:bg-[#00c689]/10 has-[:checked]:text-[#00c689]">
+              <input checked class="hidden" name="modalidad" onchange="toggleModalidadFields()" type="radio" value="cuotas">
+              <span class="material-symbols-outlined text-[18px]">calendar_month</span>
+              <span>En Cuotas</span>
+            </label>
+            <label class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-[#ebeae6] dark:border-[#2c3375] cursor-pointer bg-[#fcfbf9] dark:bg-[#161a42] text-[#2a327d] dark:text-white font-bold has-[:checked]:border-[#00c689] has-[:checked]:bg-[#00c689]/10 has-[:checked]:text-[#00c689]">
+              <input class="hidden" name="modalidad" onchange="toggleModalidadFields()" type="radio" value="unico">
+              <span class="material-symbols-outlined text-[18px]">payments</span>
+              <span>Pago Único</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-[#2a327d] dark:text-white">¿Aplica Interés?</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input checked class="sr-only peer" id="switch-interes" onchange="toggleInteresField()" type="checkbox">
+              <div class="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 peer-checked:bg-[#00c689] transition-all"></div>
+            </label>
+          </div>
+          <div class="flex items-center gap-2 pt-1" id="container-interes">
+            <span class="text-[#8f94ad] font-medium text-[11px]">Tasa pactada:</span>
+            <div class="relative w-28">
+              <input class="w-full px-2 py-1 rounded-lg bg-white dark:bg-[#20265f] border border-[#ebeae6] dark:border-[#2c3375] font-bold text-[#2a327d] dark:text-white text-right pr-6 focus:outline-none" id="form-interes" oninput="calcularCuotaPreview()" type="number" value="10">
+              <span class="absolute right-2 top-1/2 -translate-y-1/2 font-bold text-[#8f94ad] text-xs">%</span>
+            </div>
+            <span class="text-[10px] text-[#8f94ad]">total</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2" id="container-cuotas">
+          <div>
+            <label class="block font-bold text-[#2a327d] dark:text-white mb-1">N° de Cuotas</label>
+            <select class="w-full px-2.5 py-2.5 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] font-bold text-[#2a327d] dark:text-white focus:outline-none" id="form-cuotas" onchange="calcularCuotaPreview()">
+              <option value="2">2 Cuotas</option>
+              <option value="3">3 Cuotas</option>
+              <option selected value="6">6 Cuotas</option>
+              <option value="12">12 Cuotas</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-[#2a327d] dark:text-white mb-1">Fecha 1er Pago</label>
+            <input class="w-full px-2.5 py-2 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] font-bold text-[#2a327d] dark:text-white focus:outline-none text-[11px]" id="form-fecha" type="date">
+          </div>
+        </div>
+
+        <div class="hidden" id="container-pago-unico">
+          <label class="block font-bold text-[#2a327d] dark:text-white mb-1">Fecha Límite de Pago</label>
+          <input class="w-full px-3.5 py-2.5 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] font-bold text-[#2a327d] dark:text-white focus:outline-none text-xs" id="form-fecha-limite" type="date">
+        </div>
+
+        <!-- Preview -->
+        <div class="p-3.5 rounded-xl bg-gradient-to-r from-[#2a327d]/5 to-[#00c689]/10 border border-[#00c689]/30 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold text-[#8f94ad] uppercase" id="label-preview-cuota">Estimado cuota:</span>
+            <div class="text-base font-black text-[#00c689]" id="preview-cuota">S/ 0.00</div>
+          </div>
+          <div class="text-right">
+            <span class="text-[10px] font-bold text-[#8f94ad] uppercase">Total devolución:</span>
+            <div class="text-xs font-bold text-[#2a327d] dark:text-white" id="preview-total">S/ 0.00</div>
+          </div>
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button class="w-1/3 py-3 rounded-xl bg-[#fcfbf9] dark:bg-[#161a42] border border-[#ebeae6] dark:border-[#2c3375] text-[#8f94ad] font-bold" onclick="closeModalRegistro()" type="button">Cancelar</button>
+          <button class="flex-1 py-3 rounded-xl bg-[#00c689] hover:bg-[#00c689]/90 text-white font-extrabold shadow-lg active:scale-95 transition-all" id="btn-submit-loan" type="submit">Guardar Préstamo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#2a327d] text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-bold flex items-center gap-2 transition-all duration-300 transform opacity-0 -translate-y-2 pointer-events-none" id="toast">
+    <span class="material-symbols-outlined text-[18px] text-[#00c689]" id="toast-icon">check_circle</span>
+    <span id="toast-msg">Mensaje</span>
+  </div>
+</div>
+
+<script>
+  // ==========================================
+  // CONFIGURACIÓN: COLOCA AQUÍ TU URL DE APPS SCRIPT
+  // ==========================================
+  const API_URL = "https://script.google.com/macros/s/AKfycbyMINLnJDKcrewEXOKsPJ5bkcYV1JaWAVKlL5WNG9IhJujFdUvcSi7r9QoiSarRCZMc/exec";
+
+  let DB = { prestamos: [], cuotas: [] };
+  let currentFiltro = 'todos';
+
+  // Inicialización
+  window.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    document.getElementById('form-fecha').valueAsDate = new Date();
+    document.getElementById('form-fecha-limite').valueAsDate = new Date();
+    calcularCuotaPreview();
+    cargarDatosDesdeServidor();
+  });
+
+  // Tema Claro / Oscuro
+  function initTheme() {
+    const savedTheme = localStorage.getItem('wolll_theme') || 'light';
+    if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.classList.toggle('dark');
+    localStorage.setItem('wolll_theme', isDark ? 'dark' : 'light');
+    showToast(isDark ? 'Modo Noche activado 🌙' : 'Modo Claro activado ☀️');
+  }
+
+  // Navegación de Tabs
+  function switchTab(tab) {
+    const viewInicio = document.getElementById('view-inicio');
+    const viewPrestamos = document.getElementById('view-prestamos');
+    const navInicio = document.getElementById('nav-inicio');
+    const navPrestamos = document.getElementById('nav-prestamos');
+
+    if (tab === 'inicio') {
+      viewInicio.classList.remove('hidden');
+      viewPrestamos.classList.add('hidden');
+      navInicio.className = 'flex flex-col items-center gap-1 text-[#2a327d] dark:text-[#00c689] font-extrabold transition-colors';
+      navPrestamos.className = 'flex flex-col items-center gap-1 text-[#8f94ad] hover:text-[#2a327d] dark:hover:text-white transition-colors';
+    } else {
+      viewInicio.classList.add('hidden');
+      viewPrestamos.classList.remove('hidden');
+      navPrestamos.className = 'flex flex-col items-center gap-1 text-[#2a327d] dark:text-[#00c689] font-extrabold transition-colors';
+      navInicio.className = 'flex flex-col items-center gap-1 text-[#8f94ad] hover:text-[#2a327d] dark:hover:text-white transition-colors';
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Carga y Sincronización con Google Apps Script
+  async function cargarDatosDesdeServidor() {
+    if (!API_URL || API_URL.includes("PEGAR_AQUI")) {
+      showToast("Configura la API_URL en el script", "warning");
+      return;
+    }
+    showToast("Sincronizando con Google Sheets...");
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      DB = data;
+      renderApp();
+      showToast("Datos actualizados");
+    } catch (err) {
+      console.error(err);
+      showToast("Error de conexión al sincronizar", "error");
+    }
+  }
+
+  // Renderizado reactivo general
+  function renderApp() {
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+
+    let totalPorCobrar = 0;
+    let totalCobrado = 0;
+    let porVencer7dMonto = 0;
+    let cuotasPorVencerCount = 0;
+    const proximasAlertas = [];
+
+    DB.prestamos.forEach(p => {
+      p.cronograma.forEach(c => {
+        if (c.estado === 'Pagado') {
+          totalCobrado += c.montoCuota;
+        } else {
+          totalPorCobrar += c.montoCuota;
+
+          const fVenc = new Date(c.fechaVencimiento + "T00:00:00");
+          const diffDias = Math.ceil((fVenc - hoy) / (1000 * 60 * 60 * 24));
+
+          if (diffDias <= 7) {
+            porVencer7dMonto += c.montoCuota;
+            cuotasPorVencerCount++;
+            proximasAlertas.push({
+              cliente: p.nombre,
+              telefono: p.telefono,
+              monto: c.montoCuota,
+              cuotaLabel: `${c.numeroCuota} de ${c.totalCuotas}`,
+              diffDias: diffDias,
+              idCuota: c.idCuota
+            });
+          }
+        }
+      });
+    });
+
+    // Actualizar métricas
+    document.getElementById('metric-por-cobrar').innerHTML = `S/ ${totalPorCobrar.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+    document.getElementById('metric-ya-cobrado').innerHTML = `S/ ${totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+    document.getElementById('metric-por-vencer').innerHTML = `S/ ${porVencer7dMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+    document.getElementById('metric-cuotas-por-vencer-label').innerText = `${cuotasPorVencerCount} cuotas próximas`;
+    document.getElementById('metric-deudores-count').innerText = `Saldo pendiente • ${DB.prestamos.length} préstamos`;
+    document.getElementById('badge-total-prestamos').innerText = `${DB.prestamos.length} Activos`;
+
+    const granTotal = totalPorCobrar + totalCobrado;
+    const pct = granTotal > 0 ? ((totalCobrado / granTotal) * 100).toFixed(1) : 0;
+    document.getElementById('metric-progreso-pct').innerText = `${pct}% cobrado`;
+    document.getElementById('metric-progreso-bar').style.width = `${pct}%`;
+
+    renderAlertas(proximasAlertas);
+    renderDirectorioPrestamos();
+  }
+
+  // Render Alertas Dashboard
+  function renderAlertas(alertas) {
+    const container = document.getElementById('alerts-container');
+    container.innerHTML = "";
+
+    if (alertas.length === 0) {
+      container.innerHTML = `<div class="p-4 rounded-xl bg-white dark:bg-[#20265f] text-center text-xs text-[#8f94ad]">No hay cobros pendientes urgentes para los próximos 7 días 🎉</div>`;
+      return;
+    }
+
+    alertas.forEach(a => {
+      let estadoBadge = "";
+      let borderColor = "border-l-[#f9ac38]";
+      let btnColor = "bg-[#00c689]";
+      let timingTexto = "";
+
+      if (a.diffDias < 0) {
+        const diasMora = Math.abs(a.diffDias);
+        estadoBadge = `<span class="px-2 py-0.5 rounded-full bg-[#fb6158]/15 text-[#fb6158] text-[10px] font-extrabold uppercase">${diasMora} días de mora</span>`;
+        borderColor = "border-l-[#fb6158]";
+        btnColor = "bg-[#fb6158]";
+        timingTexto = `con ${diasMora} días de retraso`;
+      } else if (a.diffDias === 0) {
+        estadoBadge = `<span class="px-2 py-0.5 rounded-full bg-[#f9ac38]/15 text-[#f9ac38] text-[10px] font-extrabold uppercase">Vence hoy</span>`;
+        borderColor = "border-l-[#f9ac38]";
+        timingTexto = "hoy";
+      } else {
+        estadoBadge = `<span class="px-2 py-0.5 rounded-full bg-[#00c689]/15 text-[#00c689] text-[10px] font-extrabold uppercase">Vence en ${a.diffDias} días</span>`;
+        borderColor = "border-l-[#00c689]";
+        timingTexto = `en ${a.diffDias} días`;
+      }
+
+      const initials = a.cliente.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
+
+      container.innerHTML += `
+        <div class="p-4 rounded-2xl bg-white dark:bg-[#20265f] border-l-4 ${borderColor} border-y border-r border-[#ebeae6] dark:border-[#2c3375] shadow-sm theme-transition">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-[#2a327d]/10 dark:bg-white/10 text-[#2a327d] dark:text-white flex items-center justify-center font-black text-sm">
+                ${initials}
+              </div>
+              <div>
+                <h3 class="font-bold text-[#2a327d] dark:text-white text-sm leading-tight">${a.cliente}</h3>
+                <div class="flex items-center gap-2 mt-0.5 text-xs text-[#8f94ad]">
+                  <span>Cuota ${a.cuotaLabel}</span>
+                </div>
+              </div>
+            </div>
+            ${estadoBadge}
+          </div>
+          <div class="mt-3.5 pt-3 border-t border-[#ebeae6] dark:border-[#2c3375] flex items-center justify-between">
+            <div>
+              <span class="text-[11px] text-[#8f94ad] block font-medium">Monto cuota:</span>
+              <span class="text-lg font-black text-[#2a327d] dark:text-white">S/ ${a.monto.toFixed(2)}</span>
+            </div>
+            <button class="px-3.5 py-2 rounded-xl ${btnColor} text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all" onclick="enviarWhatsApp('${a.telefono}', '${a.cliente}', '${a.monto.toFixed(2)}', '${a.cuotaLabel}', '${timingTexto}')">
+              <span class="material-symbols-outlined text-[16px]">send</span>
+              <span>Notificar</span>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // Render Directorio de Préstamos
+  function renderDirectorioPrestamos() {
+    const list = document.getElementById('loans-list');
+    list.innerHTML = "";
+
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+
+    DB.prestamos.forEach((p, index) => {
+      const pagado = p.cronograma.filter(c => c.estado === 'Pagado').reduce((acc, c) => acc + c.montoCuota, 0);
+      const pendiente = p.total - pagado;
+      const tieneMora = p.cronograma.some(c => c.estado !== 'Pagado' && new Date(c.fechaVencimiento + "T00:00:00") < hoy);
+
+      const category = [
+        tieneMora ? 'vencidos' : 'al_dia',
+        p.modalidad === 'cuotas' ? 'en_cuotas' : 'pago_unico'
+      ].join(' ');
+
+      const initials = p.nombre.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
+      const pctAmortizado = ((pagado / p.total) * 100).toFixed(0);
+
+      let cuotasHtml = "";
+      p.cronograma.forEach(c => {
+        const fVenc = new Date(c.fechaVencimiento + "T00:00:00");
+        const esMora = c.estado !== 'Pagado' && fVenc < hoy;
+        
+        cuotasHtml += `
+          <div class="flex items-center justify-between p-2 rounded-lg ${c.estado === 'Pagado' ? 'bg-[#00c689]/10' : esMora ? 'bg-[#fb6158]/10' : 'bg-gray-50 dark:bg-[#161a42]'} border border-[#ebeae6] dark:border-[#2c3375]">
+            <span class="font-medium text-xs">Cuota ${c.numeroCuota} • ${c.fechaVencimiento}</span>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-xs ${esMora ? 'text-[#fb6158]' : ''}">S/ ${c.montoCuota.toFixed(2)}</span>
+              ${c.estado === 'Pagado' 
+                ? '<span class="text-[#00c689] font-bold text-[10px]">PAGADO</span>' 
+                : `<button onclick="marcarCuotaPagada('${c.idCuota}')" class="px-2 py-0.5 rounded bg-[#00c689] text-white text-[10px] font-bold">Cobrar</button>`}
+            </div>
+          </div>
+        `;
+      });
+
+      list.innerHTML += `
+        <div class="loan-item rounded-2xl bg-white dark:bg-[#20265f] border border-[#ebeae6] dark:border-[#2c3375] shadow-sm overflow-hidden" data-category="${category}" data-name="${p.nombre}">
+          <div class="p-4 cursor-pointer flex items-center justify-between" onclick="toggleAccordion('acc-${index}')">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-[#2a327d]/10 dark:bg-white/10 text-[#2a327d] dark:text-white flex items-center justify-center font-bold text-sm">
+                ${initials}
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="font-bold text-[#2a327d] dark:text-white text-sm">${p.nombre}</h3>
+                  <span class="w-2 h-2 rounded-full ${tieneMora ? 'bg-[#fb6158]' : 'bg-[#00c689]'}"></span>
+                </div>
+                <div class="text-xs text-[#8f94ad] mt-0.5">
+                  Restante: S/ ${pendiente.toFixed(2)} • ${p.modalidad === 'cuotas' ? p.cuotasCount + ' Cuotas' : 'Pago Único'}
+                </div>
+              </div>
+            </div>
+            <span class="material-symbols-outlined text-[20px] text-[#8f94ad] transition-transform" id="icon-acc-${index}">expand_more</span>
+          </div>
+
+          <div class="hidden px-4 pb-4 pt-1 border-t border-[#ebeae6] dark:border-[#2c3375] bg-[#fcfbf9]/50 dark:bg-[#161a42]/30 space-y-3" id="acc-${index}">
+            <div class="mt-2">
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-[#8f94ad]">Amortizado (${pctAmortizado}%)</span>
+                <span class="font-bold text-[#00c689]">S/ ${pagado.toFixed(2)} / S/ ${p.total.toFixed(2)}</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#ebeae6] dark:bg-[#161a42] overflow-hidden">
+                <div class="h-full rounded-full bg-[#00c689]" style="width: ${pctAmortizado}%"></div>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <span class="text-[11px] font-bold text-[#8f94ad] uppercase block">Desglose de Pagos</span>
+              ${cuotasHtml}
+            </div>
+
+            <button class="w-full py-2.5 rounded-xl bg-[#00c689] text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all" onclick="enviarWhatsApp('${p.telefono}', '${p.nombre}', '${pendiente.toFixed(2)}', 'saldo restante', 'a la brevedad')">
+              <span class="material-symbols-outlined text-[16px]">chat</span>
+              <span>Enviar recordatorio general por WhatsApp</span>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    filtrarPrestamos();
+  }
+
+  // WhatsApp Deep Link
+  function enviarWhatsApp(telefono, nombre, monto, cuota, timing) {
+    const telLimpio = telefono.replace(/[^0-9]/g, '');
+    const mensaje = encodeURIComponent(`Hola ${nombre}, te saludamos de Wolll Finance. Te recordamos que tu cuota (${cuota}) por el monto de S/ ${monto} vence ${timing}. Por favor confírmanos tu pago al realizarlo. ¡Muchas gracias!`);
+    window.open(`https://wa.me/${telLimpio}?text=${mensaje}`, '_blank');
+  }
+
+  // Guardar Nuevo Préstamo
+  async function guardarNuevoPrestamo(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-submit-loan');
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
+
+    const nombre = document.getElementById('form-nombre').value;
+    const tel = document.getElementById('form-pais').value + document.getElementById('form-tel').value.trim();
+    const monto = parseFloat(document.getElementById('form-monto').value);
+    const hasInteres = document.getElementById('switch-interes').checked;
+    const interesPct = hasInteres ? (parseFloat(document.getElementById('form-interes').value) || 0) : 0;
+    const modalidad = document.querySelector('input[name="modalidad"]:checked').value;
+    const cuotas = modalidad === 'cuotas' ? parseInt(document.getElementById('form-cuotas').value) : 1;
+    const fechaInicio = modalidad === 'cuotas' ? document.getElementById('form-fecha').value : document.getElementById('form-fecha-limite').value;
+
+    const total = monto + (monto * (interesPct / 100));
+
+    const payload = {
+      accion: "NUEVO_PRESTAMO",
+      nombre,
+      telefono: tel,
+      monto,
+      interesPct,
+      total,
+      modalidad,
+      cuotas,
+      fechaInicio
+    };
+
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      showToast("¡Préstamo registrado!");
+      closeModalRegistro();
+      document.getElementById('form-prestamo').reset();
+      setTimeout(cargarDatosDesdeServidor, 1500);
+    } catch (err) {
+      showToast("Error al registrar", "error");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "Guardar Préstamo";
+    }
+  }
+
+  // Marcar Cuota Pagada
+  async function marcarCuotaPagada(idCuota) {
+    showToast("Actualizando pago...");
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: "PAGAR_CUOTA", idCuota })
+      });
+      showToast("Pago asentado con éxito");
+      setTimeout(cargarDatosDesdeServidor, 1200);
+    } catch (err) {
+      showToast("Error al asentar pago", "error");
+    }
+  }
+
+  // Control Accordion y Filtros
+  function toggleAccordion(id) {
+    const el = document.getElementById(id);
+    const icon = document.getElementById('icon-' + id);
+    if (el.classList.contains('hidden')) {
+      el.classList.remove('hidden');
+      icon.style.transform = 'rotate(180deg)';
+    } else {
+      el.classList.add('hidden');
+      icon.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  function setFiltro(tipo, btn) {
+    currentFiltro = tipo;
+    document.querySelectorAll('.filter-pill').forEach(b => {
+      b.className = 'filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white dark:bg-[#20265f] text-[#8f94ad] border border-[#ebeae6] dark:border-[#2c3375]';
+    });
+    btn.className = 'filter-pill px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-[#2a327d] text-white dark:bg-white dark:text-[#2a327d] shadow-sm';
+    filtrarPrestamos();
+  }
+
+  function filtrarPrestamos() {
+    const q = document.getElementById('loanSearch').value.toLowerCase();
+    document.querySelectorAll('.loan-item').forEach(item => {
+      const name = item.getAttribute('data-name').toLowerCase();
+      const cat = item.getAttribute('data-category');
+      const matchesQuery = name.includes(q);
+      const matchesCat = (currentFiltro === 'todos') || cat.includes(currentFiltro);
+      item.style.display = (matchesQuery && matchesCat) ? 'block' : 'none';
+    });
+  }
+
+  // Modales y cálculos reactivos
+  function openModalRegistro() {
+    document.getElementById('modal-registro').classList.remove('hidden');
+    toggleModalidadFields();
+    calcularCuotaPreview();
+  }
+
+  function closeModalRegistro() {
+    document.getElementById('modal-registro').classList.add('hidden');
+  }
+
+  function toggleModalidadFields() {
+    const mod = document.querySelector('input[name="modalidad"]:checked')?.value || 'cuotas';
+    const cCuotas = document.getElementById('container-cuotas');
+    const cPagoUnico = document.getElementById('container-pago-unico');
+    const labelPreview = document.getElementById('label-preview-cuota');
+
+    if (mod === 'unico') {
+      cCuotas.classList.add('hidden');
+      cPagoUnico.classList.remove('hidden');
+      if (labelPreview) labelPreview.innerText = 'Total a devolver al vencimiento:';
+    } else {
+      cCuotas.classList.remove('hidden');
+      cPagoUnico.classList.add('hidden');
+      if (labelPreview) labelPreview.innerText = 'Estimado cuota:';
+    }
+    calcularCuotaPreview();
+  }
+
+  function toggleInteresField() {
+    const c = document.getElementById('switch-interes').checked;
+    document.getElementById('container-interes').classList.toggle('hidden', !c);
+    calcularCuotaPreview();
+  }
+
+  function calcularCuotaPreview() {
+    const monto = parseFloat(document.getElementById('form-monto').value) || 0;
+    const hasInteres = document.getElementById('switch-interes').checked;
+    const tasa = hasInteres ? (parseFloat(document.getElementById('form-interes').value) || 0) : 0;
+    const mod = document.querySelector('input[name="modalidad"]:checked')?.value || 'cuotas';
+    const numCuotas = mod === 'cuotas' ? (parseInt(document.getElementById('form-cuotas').value) || 1) : 1;
+
+    const totalDevolver = monto + (monto * (tasa / 100));
+    const valorCuota = totalDevolver / numCuotas;
+
+    document.getElementById('preview-total').innerText = 'S/ ' + totalDevolver.toFixed(2);
+    document.getElementById('preview-cuota').innerText = mod === 'unico' 
+      ? 'S/ ' + totalDevolver.toFixed(2)
+      : 'S/ ' + valorCuota.toFixed(2) + ' / cuota';
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-msg').innerText = msg;
+    toast.classList.remove('opacity-0', '-translate-y-2', 'pointer-events-none');
+    toast.classList.add('opacity-100', 'translate-y-0');
+    setTimeout(() => {
+      toast.classList.remove('opacity-100', 'translate-y-0');
+      toast.classList.add('opacity-0', '-translate-y-2', 'pointer-events-none');
+    }, 3000);
+  }
+
+  // Registro del Service Worker para PWA
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err));
+  }
+</script>
+</body>
+</html>
