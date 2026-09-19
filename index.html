@@ -406,22 +406,29 @@
 
   // Carga y Sincronización con Google Apps Script
   async function cargarDatosDesdeServidor() {
-    if (!API_URL || API_URL.includes("PEGAR_AQUI")) {
-      showToast("Configura la API_URL en el script", "warning");
-      return;
-    }
-    showToast("Sincronizando con Google Sheets...");
-    try {
-      const res = await fetch(API_URL);
-      const data = await res.json();
-      DB = data;
-      renderApp();
-      showToast("Datos actualizados");
-    } catch (err) {
-      console.error(err);
-      showToast("Error de conexión al sincronizar", "error");
-    }
+  if (!API_URL || API_URL.includes("PEGAR_AQUI")) {
+    showToast("Configura la API_URL en el script", "warning");
+    return;
   }
+  showToast("Sincronizando con Google Sheets...");
+  try {
+    // Agregamos Date.now() para que ningún navegador use copia en memoria
+    const separador = API_URL.includes('?') ? '&' : '?';
+    const urlFresca = `${API_URL}${separador}_t=${Date.now()}`;
+
+    const res = await fetch(urlFresca, {
+      method: 'GET',
+      cache: 'no-store'
+    });
+    const data = await res.json();
+    DB = data;
+    renderApp();
+    showToast("Datos actualizados");
+  } catch (err) {
+    console.error(err);
+    showToast("Error de conexión al sincronizar", "error");
+  }
+}
 
  // Renderizado reactivo general corregido y tolerante a fechas
 function renderApp() {
