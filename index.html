@@ -423,59 +423,81 @@
     }
   }
 
-  // Renderizado reactivo general
-  function renderApp() {
-    const hoy = new Date();
-    hoy.setHours(0,0,0,0);
+ // Renderizado reactivo general corregido y tolerante a fechas
+function renderApp() {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
 
-    let totalPorCobrar = 0;
-    let totalCobrado = 0;
-    let porVencer7dMonto = 0;
-    let cuotasPorVencerCount = 0;
-    const proximasAlertas = [];
+  let totalPorCobrar = 0;
+  let totalCobrado = 0;
+  let porVencer7dMonto = 0;
+  let cuotasPorVencerCount = 0;
+  const proximasAlertas = [];
 
-    DB.prestamos.forEach(p => {
-      p.cronograma.forEach(c => {
-        if (c.estado === 'Pagado') {
-          totalCobrado += c.montoCuota;
-        } else {
-          totalPorCobrar += c.montoCuota;
-
-          const fVenc = new Date(c.fechaVencimiento + "T00:00:00");
-          const diffDias = Math.ceil((fVenc - hoy) / (1000 * 60 * 60 * 24));
-
-          if (diffDias <= 7) {
-            porVencer7dMonto += c.montoCuota;
-            cuotasPorVencerCount++;
-            proximasAlertas.push({
-              cliente: p.nombre,
-              telefono: p.telefono,
-              monto: c.montoCuota,
-              cuotaLabel: `${c.numeroCuota} de ${c.totalCuotas}`,
-              diffDias: diffDias,
-              idCuota: c.idCuota
-            });
-          }
-        }
-      });
-    });
-
-    // Actualizar métricas
-    document.getElementById('metric-por-cobrar').innerHTML = `S/ ${totalPorCobrar.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-    document.getElementById('metric-ya-cobrado').innerHTML = `S/ ${totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-    document.getElementById('metric-por-vencer').innerHTML = `S/ ${porVencer7dMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-    document.getElementById('metric-cuotas-por-vencer-label').innerText = `${cuotasPorVencerCount} cuotas próximas`;
-    document.getElementById('metric-deudores-count').innerText = `Saldo pendiente • ${DB.prestamos.length} préstamos`;
-    document.getElementById('badge-total-prestamos').innerText = `${DB.prestamos.length} Activos`;
-
-    const granTotal = totalPorCobrar + totalCobrado;
-    const pct = granTotal > 0 ? ((totalCobrado / granTotal) * 100).toFixed(1) : 0;
-    document.getElementById('metric-progreso-pct').innerText = `${pct}% cobrado`;
-    document.getElementById('metric-progreso-bar').style.width = `${pct}%`;
-
-    renderAlertas(proximasAlertas);
-    renderDirectorioPrestamos();
+  if (!DB.prestamos || DB.prestamos.length === 0) {
+    document.getElementById('alerts-container').innerHTML = 
+      `<div class="p-4 rounded-xl bg-white dark:bg-[#20265f] text-center text-xs text-[#8f94ad]">No hay préstamos registrados aún.</div>`;
+    return;
   }
+
+  DB.prestamos.forEach(p => {
+    if (!p.cronograma) return;
+
+    p.cronograma.forEach(c => {
+      const estadoCuota = (c.estado || '').toString().trim().toLowerCase();
+
+      if (estadoCuota === 'pagado') {
+        totalCobrado += Number(c.montoCuota || 0);
+      } else {
+        const monto = Number(c.montoCuota || 0);
+        totalPorCobrar += monto;
+
+        // Normalizar fecha de vencimiento (soporta YYYY-MM-DD o DD/MM/YYYY)
+        let fVenc;
+        if (typeof c.fechaVencimiento === 'string' && c.fechaVencimiento.includes('/')) {
+          const partes = c.fechaVencimiento.split('/');
+          fVenc = new Date(partes[2], partes[1] - 1, partes[0]);
+        } else {
+          fVenc = new Date(c.fechaVencimiento);
+        }
+        fVenc.setHours(0, 0, 0, 0);
+
+        const diffTiempo = fVenc.getTime() - hoy.getTime();
+        const diffDias = Math.round(diffTiempo / (1000 * 60 * 60 * 24));
+
+        // Considerar próximas las que vencen en los siguientes 7 días (o vencidas recientemente)
+        if (!isNaN(diffDias) && diffDias <= 7) {
+          porVencer7dMonto += monto;
+          cuotasPorVencerCount++;
+          proximasAlertas.push({
+            cliente: p.nombre,
+            telefono: p.telefono,
+            monto: monto,
+            cuotaLabel: `${c.numeroCuota} de ${c.totalCuotas || 1}`,
+            diffDias: diffDias,
+            idCuota: c.idCuota
+          });
+        }
+      }
+    });
+  });
+
+  // Actualizar métricas en pantalla
+  document.getElementById('metric-por-cobrar').innerHTML = `S/ ${totalPorCobrar.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+  document.getElementById('metric-ya-cobrado').innerHTML = `S/ ${totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+  document.getElementById('metric-por-vencer').innerHTML = `S/ ${porVencer7dMonto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+  document.getElementById('metric-cuotas-por-vencer-label').innerText = `${cuotasPorVencerCount} cuotas próximas`;
+  document.getElementById('metric-deudores-count').innerText = `Saldo pendiente • ${DB.prestamos.length} préstamos`;
+  document.getElementById('badge-total-prestamos').innerText = `${DB.prestamos.length} Activos`;
+
+  const granTotal = totalPorCobrar + totalCobrado;
+  const pct = granTotal > 0 ? ((totalCobrado / granTotal) * 100).toFixed(1) : 0;
+  document.getElementById('metric-progreso-pct').innerText = `${pct}% cobrado`;
+  document.getElementById('metric-progreso-bar').style.width = `${pct}%`;
+
+  renderAlertas(proximasAlertas);
+  renderDirectorioPrestamos();
+}
 
   // Render Alertas Dashboard
   function renderAlertas(alertas) {
